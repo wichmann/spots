@@ -1,6 +1,7 @@
 
 """
-Parses ST code (IEC 61131).
+Parses ST code (IEC 61131). This module uses the pyPEG parser for parsing and
+executing ST code (http://fdik.org/pyPEG/).
 
 Alternatives:
  - http://www.dabeaz.com/ply/
@@ -21,18 +22,23 @@ Created on Fri Oct 17 16:44:37 2014
 # future imports for pypeg (see http://fdik.org/pyPEG/index.html)
 from __future__ import unicode_literals, print_function
 
+import logging
+
+from pypeg2 import attr
 from pypeg2 import word
-from pypeg2 import Enum
-from pypeg2 import K
 from pypeg2 import optional
 from pypeg2 import maybe_some
+from pypeg2 import Enum
 from pypeg2 import List
-from pypeg2 import attr
 from pypeg2 import Keyword
+from pypeg2 import K
 from pypeg2 import parse
 
 
 __all__ = ['parse_source', 'execute_source']
+
+
+logger = logging.getLogger('spots.st')
 
 
 # list of all inputs with their current value (true|false)
@@ -49,6 +55,7 @@ class Output(str):
 
 class Input(str):
     grammar = word
+    # TODO Use REgEx for Input and Output!
 
 
 class Negation(Keyword):
@@ -56,7 +63,7 @@ class Negation(Keyword):
 
 
 class UnaryExpression(List):
-    grammar = optional(Negation), attr("input", Input)
+    grammar = optional(Negation), [attr('input', Input), K('true'), K('false')]
 
 
 class AndExpression(List):
@@ -67,7 +74,12 @@ class AndExpression(List):
         list_of_inputs = []
         # find all elements of this expression that are Input
         for x in self:
-            value = current_input_image[x.input]
+            if x.input == 'true':
+                value = True
+            elif x.input == 'false':
+                value = False
+            else:
+                value = current_input_image[x.input]
             if 'not' in x:
                 list_of_inputs.append(not value)
             else:
@@ -131,7 +143,7 @@ def execute_source(input_image):
     for assignment in current_program:
         output = assignment.output
         value = assignment.expression.evaluate()
-        print('{} -> {}'.format(output, value))
+        logger.debug('{} -> {}'.format(output, value))
         new_output_image[output] = value
     current_output_image = new_output_image
     return current_output_image
@@ -163,8 +175,9 @@ def test_parsing():
                    6: {'O1': False, 'O2': True, 'O3': False, 'O4': False, 'O5': True},
                    7: {'O1': True, 'O2': True, 'O3': False, 'O4': True, 'O5': True}}
     # check test cases
+    logger.info('===== Testing simple logical terms =====')
     for i in range(len(test_cases)):
-        print('Checking: {}'.format(test_cases[i]))
+        logger.info('Checking: {}'.format(test_cases[i]))
         output = execute_source(test_cases[i])
         # check dicts for equality
         unmatched_item = set(output.items()) ^ set(test_values[i].items())
@@ -172,5 +185,43 @@ def test_parsing():
             raise Exception('Test result invalid!')
 
 
+def test_parsing_2():
+    # setup and parse source
+    sources = """O1 := true;
+                 O2 := false;
+                 O3 := not true;
+                 O4 := not false;
+                 O5 := true and false;
+                 O6 := true and true;
+                 O7 := true or false;
+                 O8 := false or false;
+                 O9 := true or true;"""
+    parse_source(sources)
+    # setup test cases    
+    test_values = {'O1': True,
+                   'O2': False,
+                   'O3': False,
+                   'O4': True,
+                   'O5': False,
+                   'O6': True,
+                   'O7': True,
+                   'O8': False,
+                   'O9': True}
+    logger.info('===== Testing negation and boolean constants =====')
+    output = execute_source(dict())
+    # check dicts for equality
+    unmatched_item = set(output.items()) ^ set(test_values.items())
+    if len(unmatched_item):
+        raise Exception('Test result invalid!')
+
+
+def test_syntax():
+    logger.info('===== Testing simple syntaxtical terms =====')
+    logger.info('To be implemented!!! - Have to catch Exceptions when Syntax is invalid!')
+
+
 if __name__ == '__main__':
     test_parsing()
+    test_parsing_2()
+    test_syntax()
+

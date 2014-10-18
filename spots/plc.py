@@ -7,28 +7,44 @@ Created on Fri Oct 17 15:41:17 2014
 @author: Christian Wichmann
 """
 
-import config
+import logging
+from enum import Enum
 
-from pymodbus.client.sync import ModbusTcpClient as ModbusClient
-
+from spots import config
+from spots import controller
 from spots import st
 
 
-class IOModule():
-    def __init__(self, io_module_name):
-        ip = config.MODULES[io_module_name]
-        self.client = ModbusClient(ip, port=config.DEFAULT_MODBUS_PORT)
-        self.client.connect()
+logger = logging.getLogger('spots.plc')
 
-    def __del__(self):
-        self.client.close()
 
-    def get_bit(self, address):
-        result = self.client.read_coils(address)
-        return result.bits[0]
+# list with all controller instances for all modules, e.g. ModbusModule
+CONTROLLER = {
+}
 
-    def set_bit(self, address, value):
-        self.client.write_coil(address, value)
+
+CONTROLLER_TYPE = Enum('Modbus', 'Dummy')
+
+
+def create_controller(controller_type, name, ip=''):
+    """Creates a new controller that can be used as I/O module for this
+    SoftPLC. The given name has to be distinct and unique because it has to be
+    used to identify I/O ports in those modules via the config file.
+
+    Currently the following types of controller are supported:
+     - Modbus
+     - Dummy
+
+    :param controller_type: type of controller to be created
+    :param name: distinct and unique name for this controller
+    :param ip: Optional parameter with the ip address of the controller
+    """
+    if controller_type == CONTROLLER_TYPE.Modbus:
+        CONTROLLER[name] = controller.ModbusModule(name, ip)
+    elif controller_type == CONTROLLER_TYPE.Dummy:
+        CONTROLLER[name] = controller.DummyModule(name)
+    else:
+        logger.error('Could not create controller because invalid controller type.')
 
 
 def read_input_bits():
@@ -40,8 +56,8 @@ def read_input_bits():
 
 def read_bit_from_input(port_id):
     controller, address = port_id.split(':')
-    value = config.CONTROLLER[controller].get_bit(int(address))
-    print('reading value from address ' + str(address) + ': ' + str(value))
+    value = CONTROLLER[controller].get_bit(int(address))
+    logger.debug('reading value from address ' + str(address) + ': ' + str(value))
     return value
 
 
@@ -67,5 +83,5 @@ def write_output_bits(output_image):
 
 def write_bit_into_output(port_id, value):
     controller, address = port_id.split(':')
-    print('writing value of ' + str(value) + ' to address ' + str(address))
-    config.CONTROLLER[controller].set_bit(int(address), value)
+    logger.debug('writing value of ' + str(value) + ' to address ' + str(address))
+    CONTROLLER[controller].set_bit(int(address), value)

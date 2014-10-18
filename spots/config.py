@@ -16,9 +16,6 @@ MODULES = {
     'WAGO-IO': '192.168.10.129'
 }
 
-CONTROLLER = {
-}
-
 INPUT_BITS = {
     'I1': 'WAGO-IPC:0'
 }
