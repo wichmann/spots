@@ -11,6 +11,8 @@ import config
 
 from pymodbus.client.sync import ModbusTcpClient as ModbusClient
 
+from spots import st
+
 
 class IOModule():
     def __init__(self, io_module_name):
@@ -43,14 +45,18 @@ def read_bit_from_input(port_id):
     return value
 
 
-def process_input_to_output(input_image):
-    output_image = {}
-    for key in config.OUTPUT_BITS:
-        output_image[key] = False
-    if input_image['I1'] == True:
-        output_image['O9'] = True
-        output_image['O10'] = True
-        output_image['O14'] = True
+def process_input_to_output(source, input_image):
+    """Processes the given input image and executes the source to determine
+    the values of all outputs. Currently it handles only source code in ST
+    (IEC 61131).
+    
+    :param source: string containing the source to be executed
+    :param input_image: input image with value of all inputs
+    :returns: output image with all output values
+    """
+    # TODO Handle different languages besides ST.
+    st.parse_source(source)
+    output_image = st.execute_source(input_image)
     return output_image
 
 

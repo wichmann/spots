@@ -17,6 +17,9 @@ from spots import config
 from spots import plc
 
 
+source = """O9 := I1;O10 := I1;O11 := I1;O12 := I1;"""
+
+
 def setup_logging():
     import logging
     logging.basicConfig()
@@ -32,10 +35,10 @@ def start_plc():
     try:
         while True:
             input_image = plc.read_input_bits()
-            output_image = plc.process_input_to_output(input_image)
+            output_image = plc.process_input_to_output(source, input_image)
             plc.write_output_bits(output_image)
             time.sleep(config.DEFAULT_CYCLE_TIME_MS / 1000.)
-    except:
+    except KeyboardInterrupt:
         print('Good bye!')
 
 
