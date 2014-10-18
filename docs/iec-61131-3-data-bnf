@@ -1,0 +1,186 @@
+letter ::= ’A’ | ’B’ | <...> | ’Z’ | ’a’ | ’b’ | <...> | ’z’
+digit ::= ’0’ | ’1’ | ’2’ | ’3’ | ’4’ | ’5’ | ’6’ | ’7’ | ’8’ |’9’
+octal_digit ::= ’0’ | ’1’ | ’2’ | ’3’ | ’4’ | ’5’ | ’6’ | ’7’
+hex_digit ::= digit | ’A’| ’B’ | ’C’ | ’D’ | ’E’ | ’F’
+identifier ::= (letter | (’_’ (letter | digit))) {[’_’] (letter | digit)}
+constant ::= numeric_literal | character_string | time_literal | bit_string_literal |
+boolean_literal
+numeric_literal ::= integer_literal | real_literal
+integer_literal ::= [ integer_type_name ’#’ ]( signed_integer | binary_integer |
+octal_integer | hex_integer)
+signed_integer ::= [’+’ |’-’] integer
+integer ::= digit {[’_’] digit}
+binary_integer ::= ’2#’ bit {[’_’] bit}
+bit ::= ’1’ | ’0’
+octal_integer ::= ’8#’ octal_digit {[’_’] octal_digit}
+hex_integer ::= ’16#’ hex_digit{[’_’] hex_digit}
+real_literal ::= [ real_type_name ’#’ ]
+signed_integer ’.’ integer [exponent]
+exponent ::= (’E’ | ’e’)[’+’|’-’] integer
+bit_string_literal ::= [ (’BYTE’ | ’WORD’ | ’DWORD’ | ’LWORD’) ’#’ ]( unsigned_integerbinary_integer | octal_integer | hex_integer)
+boolean_literal ::= ( [ ’BOOL#’ ] (’1’ | ’0’ ) )| ’TRUE’ | ’FALSE’
+character_string ::= single_byte_character_string | double_byte_character_string
+single_byte_character_string ::= "’" {single_byte_character_representation} "’"
+double_byte_character_string ::= ’"’ {double_byte_character_representation} ’"’
+single_byte_character_representation ::= common_character_representation | "$’" | ’"’ |
+’$’ hex_digit hex_digit
+double_byte_character_representation ::= common_character_representation | ’$"’ | "’"|
+’$’ hex_digit hex_digit hex_digit hex_digit
+common_character_representation ::= <any printable character except ’$’, ’"’ or "’"> |
+’$$’ | ’$L’ | ’$N’ | ’$P’ | ’$R’ | ’$T’ | ’$l’ | ’$n’ | ’$p’ | ’$r’ | ’$t’
+time_literal ::= duration | time_of_day
+duration ::= (’T’ | ’TIME’) ’#’ [’-’] interval
+interval ::= days | hours | minutes | seconds | milliseconds
+days ::= fixed_point (’d’) | integer (’d’) [’_’] hours
+fixed_point ::= integer [ ’.’ integer]
+hours ::= fixed_point (’h’) | integer (’h’)[’_’] minutes
+minutes ::= fixed_point (’m’) | integer (’m’) [’_’] seconds
+seconds ::= fixed_point (’s’) | integer (’s’) [’_’]milliseconds
+milliseconds ::= fixed_point (’ms’)
+time_of_day ::= (’TIME_OF_DAY’ | ’TOD’) ’#’ daytime
+daytime ::= day_hour ’:’ day_minute ’:’ day_second
+day_hour ::= integer
+day_minute ::= integer
+day_second ::= fixed_point
+date ::= (’DATE’ | ’D’) ’#’ date_literal
+date_literal ::= year ’-’ month ’-’ day
+year ::= integer
+month ::= integer
+day ::= integer
+date_and_time ::= (’DATE_AND_TIME’ | ’DT’) ’#’ date_literal ’-’ daytime
+data_type_name ::= non_generic_type_name | generic_type_name
+non_generic_type_name ::= elementary_type_name | derived_type_name
+elementary_type_name ::= numeric_type_name | date_type_name | bit_string_type_name
+| ’STRING’ | ’WSTRING’ | ’TIME’
+numeric_type_name ::= integer_type_name | real_type_name
+integer_type_name ::= signed_integer_type_name | unsigned_integer_type_name
+signed_integer_type_name ::= ’SINT’ | ’INT’ | ’DINT’ | ’LINT’
+unsigned_integer_type_name ::= ’USINT’ | ’UINT’ | ’UDINT’ | ’ULINT’
+real_type_name ::= ’REAL’ | ’LREAL’
+date_type_name ::= ’DATE’ | ’TIME_OF_DAY’ | ’TOD’ | ’DATE_AND_TIME’ | ’DT’
+bit_string_type_name ::= ’BOOL’ | ’BYTE’ | ’WORD’ | ’DWORD’ | ’LWORD’
+generic_type_name ::= ’ANY’ | ’ANY_DERIVED’ | ’ANY_ELEMENTARY’ | ’ANY_MAGNITUDE’
+| ’ANY_NUM’ | ’ANY_REAL’ | ’ANY_INT’ | ’ANY_BIT’ | ’ANY_STRING’ | ’ANY_DATE’
+derived_type_name ::= single_element_type_name | array_type_name | structure_type_namestring_type_name
+single_element_type_name ::= simple_type_name | subrange_type_name | enumerated_type_name
+
+
+
+|
+ame
+simple_type_name ::= identifier
+subrange_type_name ::= identifier
+enumerated_type_name ::= identifier
+array_type_name ::= identifier
+structure_type_name ::= identifier
+data_type_declaration ::= ’TYPE’ type_declaration ’;’ {type_declaration ’;’} ’END_TYPE’
+type_declaration ::= single_element_type_declaration | array_type_declaration |
+structure_type_declaration | string_type_declaration
+single_element_type_declaration ::= simple_type_declaration | subrange_type_declaration |
+enumerated_type_declaration
+simple_type_declaration ::= simple_type_name ’:’ simple_spec_init
+simple_spec_init ::= simple_specification [’:=’ constant]
+simple_specification ::= elementary_type_name | simple_type_name
+subrange_type_declaration ::= subrange_type_name ’:’ subrange_spec_init
+subrange_spec_init ::= subrange_specification[’:=’ signed_integer]
+subrange_specification ::= integer_type_name ’(’ subrange’)’ | subrange_type_name
+subrange ::= signed_integer ’..’ signed_integer
+enumerated_type_declaration ::= enumerated_type_name ’:’ numerated_spec_init
+enumerated_spec_init ::= enumerated_specification [’:=’ numerated_value]
+enumerated_specification ::= (’(’ enumerated_value {’,’ enumerated_value} ’)’) |
+enumerated_type_name
+enumerated_value ::= [enumerated_type_name ’#’] identifier
+array_type_declaration ::= array_type_name ’:’ array_spec_init
+array_spec_init ::= array_specification [’:=’ array_initialization]
+array_specification ::= array_type_name | ’ARRAY’ ’[’ subrange {’,’ subrange} ’]’
+’OF’ non_generic_type_name
+array_initialization::= ’[’ array_initial_elements {’,’ array_initial_elements} ’]’
+array_initial_elements ::= array_initial_element | integer ’(’[array_initial_element] ’)’
+array_initial_element ::= constant | enumerated_value | structure_initialization |
+array_initialization
+structure_type_declaration ::= structure_type_name ’:’ structure_specification
+structure_specification ::= structure_declaration | initialized_structure
+initialized_structure ::=structure_type_name [’:=’ structure_initialization]
+structure_declaration ::=’STRUCT’ structure_element_declaration ’;
+’{structure_element_declaration ’;’}’END_STRUCT’
+structure_element_declaration ::= structure_element_name ’:’(simple_spec_init |
+subrange_spec_init | enumerated_spec_init | array_spec_init | initialized_structure)
+structure_element_name ::= identifier
+structure_initialization ::= ’(’ structure_element_initialization
+{’,’ structure_element_initialization} ’)’
+structure_element_initialization ::= structure_element_name ’:=’ (constant | enumerated_value
+| array_initialization | structure_initialization)
+string_type_name ::= identifier
+string_type_declaration ::= string_type_name ’:’ (’STRING’|’WSTRING’) [’[’ integer ’]’]
+[’:=’ character_string]
+variable ::= direct_variable | symbolic_variable
+symbolic_variable ::= variable_name | multi_element_variable
+variable_name ::= identifier
+direct_variable ::= ’%’ location_prefix size_prefix integer {’.’ integer}
+location_prefix ::= ’I’ | ’Q’ | ’M’
+size_prefix ::= NIL | ’X’ | ’B’ | ’W’ | ’D’ | ’L’
+multi_element_variable ::= array_variable | structured_variable
+array_variable ::= subscripted_variable subscript_list
+subscripted_variable ::= symbolic_variable
+subscript_list ::= ’[’ subscript {’,’ subscript} ’]’
+|subscript ::= expression
+structured_variable ::= record_variable ’.’ field_selector
+record_variable ::= symbolic_variable
+field_selector ::= identifier
+input_declarations ::= ’VAR_INPUT’ [’RETAIN’ | ’NON_RETAIN’] input_declaration ’;’
+{input_declaration ’;’} ’END_VAR’
+input_declaration ::= var_init_decl | edge_declaration
+edge_declaration ::= var1_list ’:’ ’BOOL’ (’R_EDGE’ | ’F_EDGE’)
+var_init_decl ::= var1_init_decl | array_var_init_decl | structured_var_init_decl
+| fb_name_decl | string_var_declaration
+var1_init_decl ::= var1_list ’:’ (simple_spec_init | subrange_spec_init |
+enumerated_spec_init)
+var1_list ::= variable_name {’,’ variable_name}
+array_var_init_decl
+ ::= var1_list ’:’ array_spec_init
+structured_var_init_decl ::= var1_list ’:’ initialized_structure
+fb_name_decl
+ ::=
+ fb_name_list
+ ’:’ function_block_type_name [ ’:=’ structure_initialization ]
+fb_name_list ::= fb_name {’,’ fb_name}
+fb_name
+ ::=
+ identifier
+output_declarations ::= ’VAR_OUTPUT’ [’RETAIN’ | ’NON_RETAIN’] var_init_decl ’;’
+{var_init_decl ’;’} ’END_VAR’
+input_output_declarations ::= ’VAR_IN_OUT’ var_declaration ’;’ {var_declaration ’;’} ’END_VAR’
+var_declaration ::= temp_var_decl | fb_name_decl
+temp_var_decl ::= var1_declaration | array_var_declaration | structured_var_declaration |
+string_var_declaration
+var1_declaration ::= var1_list ’:’ (simple_specification | subrange_specification |
+enumerated_specification)
+array_var_declaration ::= var1_list ’:’ array_specification
+structured_var_declaration
+ ::= var1_list ’:’ structure_type_name
+var_declarations ::= ’VAR’ [’CONSTANT’] var_init_decl ’;’ {(var_init_decl ’;’)}
+’END_VAR’
+retentive_var_declarations ::= ’VAR’ ’RETAIN’ var_init_decl ’;’ {var_init_decl ’;’}
+’END_VAR’
+located_var_declarations ::= ’VAR’ [’CONSTANT’ | ’RETAIN’ | ’NON_RETAIN’]
+located_var_decl ’;’ {located_var_decl ’;’} ’END_VAR’
+located_var_decl ::= [variable_name] location ’:’ located_var_spec_init
+external_var_declarations ::= ’VAR_EXTERNAL’ [’CONSTANT’]
+external_declaration ’;’ {external_declaration ’;’} ’END_VAR’
+external_declaration ::= global_var_name ’:’ (simple_specification |
+subrange_specification | enumerated_specification | array_specification |
+structure_type_name | function_block_type_name)
+global_var_name ::= identifier
+global_var_declarations ::= ’VAR_GLOBAL’ [’CONSTANT’ | ’RETAIN’]
+global_var_decl ’;’ {global_var_decl ’;’} ’END_VAR’
+global_var_decl ::= global_var_spec ’:’
+[ located_var_spec_init | function_block_type_name ]
+global_var_spec ::= global_var_list | [global_var_name] location
+located_var_spec_init ::= simple_spec_init | subrange_spec_init
+| enumerated_spec_init | array_spec_init | initialized_structure |
+single_byte_string_spec | double_byte_string_spec
+location ::= ’AT’ direct_variable
+global_var_list ::= global_var_name {’,’ global_var_name}
+| string_var_declaration ::= single_byte_string_var_declaration
+| double_byte_string_var_declaration
+single_byte_string_var_declaration ::= var1_list ’:’ single_byte_string_spec
