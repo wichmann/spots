@@ -1,0 +1,41 @@
+instruction_list ::= il_instruction {il_instruction}
+il_instruction ::= [label’:’] [ il_simple_operation
+| il_expression
+| il_jump_operation
+| il_fb_call
+| il_formal_funct_call
+| il_return_operator ] EOL {EOL}
+label ::= identifier
+il_simple_operation ::= ( il_simple_operator [il_operand] )
+| ( function_name [il_operand_list] )
+il_expression ::= il_expr_operator ’(’ [il_operand] EOL {EOL}
+[simple_instr_list] ’)’
+il_jump_operation ::= il_jump_operator label
+il_fb_call ::= il_call_operator fb_name [’(’
+(EOL {EOL} [ il_param_list ]) | [ il_operand_list ] ’)’]
+il_formal_funct_call ::= function_name ’(’ EOL {EOL} [il_param_list] ’)’
+il_operand ::= constant | variable | enumerated_value
+il_operand_list ::= il_operand {’,’ il_operand}
+simple_instr_list ::= il_simple_instruction {il_simple_instruction}
+il_simple_instruction ::=
+(il_simple_operation | il_expression | il_formal_funct_call)
+EOL {EOL}
+il_param_list ::= {il_param_instruction} il_param_last_instruction
+il_param_instruction ::= (il_param_assignment | il_param_out_assignment)
+’,’ EOL {EOL}
+il_param_last_instruction ::=
+( il_param_assignment | il_param_out_assignment ) EOL {EOL}
+il_param_assignment ::= il_assign_operator ( il_operand | ( ’(’ EOL {EOL}
+simple_instr_list ’)’ ) )
+il_param_out_assignment ::= il_assign_out_operator variable
+il_simple_operator ::= ’LD’ | ’LDN’ | ’ST’ | ’STN’ | ’NOT’ | ’S’
+| ’R’ | ’S1’ | ’R1’ | ’CLK’ | ’CU’ | ’CD’ | ’PV’
+| ’IN’ | ’PT’ | il_expr_operator
+il_expr_operator ::= ’AND’ | ’&’ | ’OR’ | ’XOR’ | ’ANDN’ | ’\&N’ | ’ORN’
+| ’XORN’ | ’ADD’ | ’SUB’ | ’MUL’ | ’DIV’ | ’MOD’ | ’GT’ | ’GE’ | ’EQ’
+| ’LT’ | ’LE’ | ’NE’
+il_assign_operator ::= variable_name’:=’
+il_assign_out_operator ::= [’NOT’] variable_name’=>’
+il_call_operator ::= ’CAL’ | ’CALC’ | ’CALCN’
+il_return_operator ::= ’RET’ | ’RETC’ | ’RETCN’
+il_jump_operator ::= ’JMP’ | ’JMPC’ | ’JMPCN’
