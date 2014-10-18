@@ -3,6 +3,10 @@
 Provides controller modules for connecting to decentralized I/O controllers
 via different bus systems or field buses.
 
+Info:
+ - https://github.com/bashwork/pymodbus/
+ - 
+
 Created on Sat Oct 18 12:40:04 2014
 
 @author: christian
