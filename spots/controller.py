@@ -54,8 +54,9 @@ class DummyModule():
         pass
 
     def get_bit(self, address):
+        logger.debug('Getting random bit...')
         import random
         return bool(random.randint(0, 1))
 
     def set_bit(self, address, value):
-        pass
+        logger.debug('Setting bit...')

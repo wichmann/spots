@@ -17,9 +17,10 @@ SPotS is released under the GNU General Public License v2 or newer.
 
 REQUIREMENTS
 ------------
-SPotS runs with Python 2.7. It requires also the following packages:
+SPotS runs with Python 2.7 and 3.4. It requires also the following packages:
 
-* pymodbus
+* pymodbus (connection to I/O modules via ModbusTCP)
+* pypeg2 (parser for IEC 61131-3 ST)
 * enum (enum support under Python 2.7)
 * 
 

@@ -23,7 +23,10 @@ CONTROLLER = {
 }
 
 
-CONTROLLER_TYPE = Enum('Modbus', 'Dummy')
+#CONTROLLER_TYPE = Enum('CONTROLLER_TYPE', 'Modbus Dummy')
+class CONTROLLER_TYPE(Enum):
+    Modbus = 1
+    Dummy = 2
 
 
 def create_controller(controller_type, name, ip=''):
