@@ -28,11 +28,13 @@ import re
 from pypeg2 import attr
 from pypeg2 import optional
 from pypeg2 import maybe_some
+from pypeg2 import some
 from pypeg2 import Enum
 from pypeg2 import List
 from pypeg2 import Keyword
 from pypeg2 import K
 from pypeg2 import parse
+from pypeg2 import word
 
 
 __all__ = ['parse_source', 'execute_source']
@@ -111,23 +113,21 @@ class Assignment(List):
 
 
 class BlockComment(str):
-    grammar = '(*', str, '*)'
-    #grammar = re.compile(r"(?m)\(\*.*?\*\)")
+    grammar = '(*', word, '*)'
+    # Alternative grammar = re.compile(r"(?m)\(\*.*?\*\)")
 
 
 class Program(List):
-    grammar = maybe_some(Assignment)
-    #grammar = some([optional(BlockComment), optional(Assignment)])
+    # TODO Fix problems with comments at the end of source code
+    grammar = some(optional(BlockComment), Assignment)
 
 
 def parse_source(source):
-    """Parses given source code in ST (IEC 61131) and executes it. For all
-    inputs the values from the given imput image are used. The function returns
-    an output image with the value of all outputs that appear in the source.
+    """Parses given source code in ST (IEC 61131) and stores the resulting
+    program. This method has only to be called once when the program has
+    changed.
 
     :param source: string containing the source to be executed
-    :param input_image: input image with value of all inputs
-    :returns: output image with all output values
     """
     global current_program
     current_program = parse(source, Program)
@@ -230,6 +230,27 @@ def test_parsing_2():
         raise Exception('Test result invalid!')
 
 
+def test_parsing_3():
+    # setup and parse source
+    sources = """(* Programm *)
+                 O1 := not false;
+                 (* fdasigfdio *)
+                 O2 := false;
+                 (* dfjkhds *)
+                 O3 := not true;"""
+    parse_source(sources)
+    # setup test cases    
+    test_values = {'O1': True,
+                   'O2': False,
+                   'O3': False}
+    logger.info('===== Testing source with comments =====')
+    output = execute_source(dict())
+    # check dicts for equality
+    unmatched_item = set(output.items()) ^ set(test_values.items())
+    if len(unmatched_item):
+        raise Exception('Test result invalid!')
+
+
 def test_syntax():
     logger.info('===== Testing simple syntaxtical terms =====')
     logger.info('To be implemented!!! - Have to catch Exceptions when Syntax is invalid!')
@@ -238,5 +259,6 @@ def test_syntax():
 if __name__ == '__main__':
     test_parsing()
     test_parsing_2()
+    test_parsing_3()
     test_syntax()
 
