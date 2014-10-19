@@ -12,11 +12,12 @@ Created on Sat Oct 18 17:09:11 2014
 
 
 import logging
+import time
 from PyQt4 import QtGui
 from PyQt4 import QtCore
 
 from main_window import Ui_MainWindow
-
+import change_signal_dialog
 from spots import plc
 from spots import config
 
@@ -67,13 +68,17 @@ class SpotsGui(QtGui.QMainWindow, Ui_MainWindow):
         self.actionQuit.triggered.connect(QtGui.qApp.quit)
         self.execute_button.clicked.connect(self.on_execute_button)
         # change list items
-        self.input_list_view.doubleClicked.connect(self.on_change_input)
-        self.output_list_view.doubleClicked.connect(self.on_change_output)
+        self.input_list_view.doubleClicked.connect(self.on_change_input_output)
+        self.output_list_view.doubleClicked.connect(self.on_change_input_output)
         self.controller_list_view.doubleClicked.connect(self.on_change_controller)
         # delete list items
         self.remove_controller_button.clicked.connect(self.on_delete_controller)
         self.remove_input_button.clicked.connect(self.on_delete_input)
         self.remove_output_button.clicked.connect(self.on_delete_output)
+        # add list items
+        self.add_controller_button.clicked.connect(self.on_add_controller)
+        self.add_input_button.clicked.connect(self.on_add_input_output)
+        self.add_output_button.clicked.connect(self.on_add_input_output)
 
     def setup_plc_timer(self):
         self.timer = QtCore.QTimer()
@@ -81,6 +86,7 @@ class SpotsGui(QtGui.QMainWindow, Ui_MainWindow):
         self.timer.start(config.DEFAULT_CYCLE_TIME_MS)
 
     def run_plc(self):
+        start_time = time.time()
         try:
             if self.current_program:
                 self.current_input_image = plc.read_input_bits()
@@ -101,11 +107,12 @@ class SpotsGui(QtGui.QMainWindow, Ui_MainWindow):
             return
         self.error_message_label.setText('')
         self.update_inputs_and_outputs()
+        end_time = time.time()
+        logger.debug('Real cycle time: {} ms'.format((end_time - start_time) * 1000))
 
     @QtCore.pyqtSlot()
     def on_execute_button(self):
         self.current_program = str(self.source_code_editor.toPlainText())
-        self.run_plc()
 
     def update_inputs_and_outputs(self):
         input_string = ''
@@ -117,37 +124,61 @@ class SpotsGui(QtGui.QMainWindow, Ui_MainWindow):
             output_string += '{:<5}: \t{}\n'.format(k, v)
         self.output_text_edit.setText(output_string)
 
-    @QtCore.pyqtSlot()
-    def on_change_input(self):
-        print('lllll')
-
-    @QtCore.pyqtSlot()
-    def on_change_output(self):
-        print('jjjj')
+    @QtCore.pyqtSlot(QtCore.QModelIndex)
+    def on_change_input_output(self, index):
+        self.dialog = InputOutputDialog(self, index.data().toString())
+        self.dialog.show()
+        self.dialog.accepted.connect(self.on_return_from_changing_dialog)
 
     @QtCore.pyqtSlot()
     def on_change_controller(self):
-        print('mmmm')
+        logger.error('Changing of controllers not yet implemented!')
 
     @QtCore.pyqtSlot()
-    def on_add_input(self):
-        print('lllll')
-
-    @QtCore.pyqtSlot()
-    def on_add_output(self):
-        print('jjjj')
+    def on_add_input_output(self):
+        self.dialog = InputOutputDialog(self)
+        self.dialog.show()
+        self.dialog.accepted.connect(self.on_return_from_changing_dialog)
 
     @QtCore.pyqtSlot()
     def on_add_controller(self):
-        print('mmmm')
-        
+        logger.error('Adding of controllers not yet implemented!')
+
+    @QtCore.pyqtSlot()
+    def on_return_from_changing_dialog(self):
+        """Handles the closing of the dialog to change or add new signals.
+        A signal can be either an input or an output. If an entry is changed
+        the old entry has to be deleted first. After that the new data is added
+        to the input and putput lists in module "config".
+        """
+        # disconnect this from dialog
+        self.dialog.accepted.disconnect()
+        # check if data was changed
+        if self.dialog.old_signal_data != self.dialog.new_signal_data :
+            if self.dialog.old_signal_data:
+                # changed data -> delete old entry first
+                signal_name = self.dialog.old_signal_data[0]
+                # using startsWith (pyQt) instead of startswith (Python)!
+                if self.dialog.old_signal_data[0].startsWith('O'):
+                    del config.OUTPUT_BITS[str(signal_name)]
+                elif self.dialog.old_signal_data[0].startsWith('I'):
+                    del config.INPUT_BITS[str(signal_name)]
+            # add new data
+            signal_name = self.dialog.new_signal_data[0]
+            signal_address = '{}:{}'.format(self.dialog.new_signal_data[1],self.dialog.new_signal_data[2])
+            if self.dialog.new_signal_data[0].startsWith('O'):
+                config.OUTPUT_BITS[str(signal_name)] = signal_address
+            elif self.dialog.new_signal_data[0].startsWith('I'):
+                config.INPUT_BITS[str(signal_name)] = signal_address
+        self.update_lists()
+
     @QtCore.pyqtSlot()
     def on_delete_input(self):
         for item in self.input_list_view.selectedItems():
             name = str(item.text().split(' -> ')[0])
             del config.INPUT_BITS[name]
             self.input_list_view.takeItem(self.input_list_view.row(item))
-            print(config.INPUT_BITS)
+            logger.debug(config.INPUT_BITS)
 
     @QtCore.pyqtSlot()
     def on_delete_output(self):
@@ -155,16 +186,20 @@ class SpotsGui(QtGui.QMainWindow, Ui_MainWindow):
             name = str(item.text().split(' -> ')[0])
             del config.OUTPUT_BITS[name]
             self.output_list_view.takeItem(self.output_list_view.row(item))
-            print(config.OUTPUT_BITS)
+            logger.debug(config.OUTPUT_BITS)
 
     @QtCore.pyqtSlot()
     def on_delete_controller(self):
-        for item in self.controller_list_view.selectedItems():
-            del plc.CONTROLLER[item.controller_id]
-            self.controller_list_view.takeItem(self.controller_list_view.row(item))
-            print(plc.CONTROLLER)
+        logger.error('Deleting of controllers not yet implemented!')
+        #for item in self.controller_list_view.selectedItems():
+        #    del plc.CONTROLLER[item.controller_id]
+        #    self.controller_list_view.takeItem(self.controller_list_view.row(item))
+        #    print(plc.CONTROLLER)
 
     def update_lists(self):
+        self.controller_list_view.clear()
+        self.input_list_view.clear()
+        self.output_list_view.clear()
         for k, c in plc.CONTROLLER.items():
             item = QtGui.QListWidgetItem(str(c))
             item.controller_id = k
@@ -177,13 +212,55 @@ class SpotsGui(QtGui.QMainWindow, Ui_MainWindow):
             self.output_list_view.addItem(QtGui.QListWidgetItem(string))
 
 
-class InputOutputDialog(QtGui.QDialog):
-    def __init__(self, parent=None):
+class InputOutputDialog(QtGui.QDialog, change_signal_dialog.Ui_Dialog):
+    """Provides a dialog box to change or add signals. Signals can either be
+    inputs or outputs. The dialog is called with a signal id that identifies
+    the signal to be changed if one exists.
+
+    After the dialog is closed the old and new signal data can be read as
+    tuples 'old_signal_data' and 'new_signal_data'. First string is the signals
+    name (e.g. 'I3'), after that follow the name of the controller and the
+    address (e.g. number 34).
+    """
+    def __init__(self, parent=None, signal_id=''):
         super(InputOutputDialog, self).__init__(parent)
+        self.signal_to_be_changed = signal_id
+        self.setupUi(self)
         self.setup_widgets()
+        self.set_signals_and_slots()
 
     def setup_widgets(self):
-        pass
+        # get data
+        if self.signal_to_be_changed:
+            # already exiting signal should be changed
+            old_signal_name, old_address = self.signal_to_be_changed.split(' -> ')
+            old_controller, old_number = old_address.split(':')
+            self.old_signal_data = (old_signal_name, old_controller, old_number)
+        else:
+            self.old_signal_data = tuple()
+        # fill combo box
+        self.controller_chooser_combo.addItems(config.MODULES.keys())
+        # set values for signal if one was given
+        if self.signal_to_be_changed:
+            index = self.controller_chooser_combo.findText(old_controller)
+            self.controller_chooser_combo.setCurrentIndex(index)
+            self.signal_name_text.setText(old_signal_name)
+            self.signal_address_text.setText(old_number)
+        # setup validation etc.
+        self.signal_address_text.setValidator(QtGui.QIntValidator(0, 1000))
+        self.signal_name_text.setValidator(QtGui.QRegExpValidator(
+                                               QtCore.QRegExp('[IO]{1}[0-9]*')))
+
+    def set_signals_and_slots(self):
+        self.finished.connect(self.on_close)
+        #self.okButton.clicked.connect(self.accept)
+        #self.cancelButton.clicked.connect(self.reject)
+
+    def on_close(self):
+        new_controller = self.controller_chooser_combo.currentText()
+        new_signal_name = self.signal_name_text.text()
+        new_number = self.signal_address_text.text()
+        self.new_signal_data = (new_signal_name, new_controller, new_number)
 
     
 class IecStHighlighter(QtGui.QSyntaxHighlighter):

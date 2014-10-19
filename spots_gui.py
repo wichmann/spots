@@ -37,8 +37,8 @@ def start_gui():
     logger = create_logger()
     # build controller objects for reading and writing bits
     for key in config.MODULES:
-        plc.create_controller(CONTROLLER_TYPE.Modbus, key, config.MODULES[key])
-        #plc.create_controller(CONTROLLER_TYPE.Dummy, key)
+        #plc.create_controller(CONTROLLER_TYPE.Modbus, key, config.MODULES[key])
+        plc.create_controller(CONTROLLER_TYPE.Dummy, key)
     # start GUI
     logger.info('Starting SPotS gui...')
     gui.start_gui()
