@@ -23,9 +23,9 @@ Created on Fri Oct 17 16:44:37 2014
 from __future__ import unicode_literals, print_function
 
 import logging
+import re
 
 from pypeg2 import attr
-from pypeg2 import word
 from pypeg2 import optional
 from pypeg2 import maybe_some
 from pypeg2 import Enum
@@ -49,21 +49,28 @@ current_output_image = {}
 current_program = []
 
 
-class Output(str):
-    grammar = word
+class Output(Keyword):
+    regex = re.compile(r"O{1}[0-9]+")
 
 
-class Input(str):
-    grammar = word
-    # TODO Use REgEx for Input and Output!
+class Input(Keyword):
+    regex = re.compile(r"I{1}[0-9]+")
 
 
 class Negation(Keyword):
     grammar = Enum(K('not'))
 
 
+class ConstantTrue(Keyword):
+    grammar = Enum(K('true'))
+
+
+class ConstantFalse(Keyword):
+    grammar = Enum(K('false'))
+
+
 class UnaryExpression(List):
-    grammar = optional(Negation), [attr('input', Input), K('true'), K('false')]
+    grammar = optional(Negation), [ConstantTrue, ConstantFalse, Input]
 
 
 class AndExpression(List):
@@ -72,15 +79,16 @@ class AndExpression(List):
     def evaluate(self):
         global current_input_image
         list_of_inputs = []
-        # find all elements of this expression that are Input
+        # find all elements of this expression that are Input or Constants
         for x in self:
-            if x.input == 'true':
-                value = True
-            elif x.input == 'false':
-                value = False
-            else:
-                value = current_input_image[x.input]
-            if 'not' in x:
+            for y in x:
+                if type(y) is ConstantTrue:
+                    value = True
+                elif type(y) is ConstantFalse:
+                    value = False
+                elif type(y) is Input:
+                    value = current_input_image[y]
+            if Negation('not') in x:
                 list_of_inputs.append(not value)
             else:
                 list_of_inputs.append(value)
@@ -102,8 +110,14 @@ class Assignment(List):
     grammar = attr("output", Output), ':=', attr("expression", Expression), ';'
 
 
+class BlockComment(str):
+    grammar = '(*', str, '*)'
+    #grammar = re.compile(r"(?m)\(\*.*?\*\)")
+
+
 class Program(List):
-    grammar = Assignment, maybe_some(Assignment)
+    grammar = maybe_some(Assignment)
+    #grammar = some([optional(BlockComment), optional(Assignment)])
 
 
 def parse_source(source):
@@ -141,10 +155,11 @@ def execute_source(input_image):
     # create and fill output image
     new_output_image = {}
     for assignment in current_program:
-        output = assignment.output
-        value = assignment.expression.evaluate()
-        logger.debug('{} -> {}'.format(output, value))
-        new_output_image[output] = value
+        if type(assignment) == Assignment:
+            output = assignment.output
+            value = assignment.expression.evaluate()
+            logger.debug('{} -> {}'.format(output, value))
+            new_output_image[output] = value
     current_output_image = new_output_image
     return current_output_image
 
@@ -194,7 +209,7 @@ def test_parsing_2():
                  O5 := true and false;
                  O6 := true and true;
                  O7 := true or false;
-                 O8 := false or false;
+                 O8 := false or not false;
                  O9 := true or true;"""
     parse_source(sources)
     # setup test cases    
@@ -205,7 +220,7 @@ def test_parsing_2():
                    'O5': False,
                    'O6': True,
                    'O7': True,
-                   'O8': False,
+                   'O8': True,
                    'O9': True}
     logger.info('===== Testing negation and boolean constants =====')
     output = execute_source(dict())
