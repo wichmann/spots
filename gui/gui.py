@@ -18,6 +18,7 @@ from PyQt4 import QtCore
 from main_window import Ui_MainWindow
 
 from spots import plc
+from spots import config
 
 
 __all__ = ['start_gui']
@@ -39,17 +40,20 @@ class SpotsGui(QtGui.QMainWindow, Ui_MainWindow):
         # set internal state variables
         self.current_output_image = dict()
         self.current_input_image = dict()
-        # line number and character offset for last error or an empty tuple if
-        # no error is currently present
-        self.current_error_coordinates = tuple()
+        self.current_program = ''
+        self.currently_running_plc = False
         # build main window
         self.setup_widgets()
         self.center_on_screen()
         self.set_signals_and_slots()
+        self.update_lists()
         self.setup_plc_timer()
 
     def setup_widgets(self):
         self.highlighter = IecStHighlighter(self.source_code_editor.document())
+        # line number and character offset for last error or an empty tuple if
+        # no error is currently present
+        self.highlighter.current_error_coordinates = tuple()
 
     def center_on_screen(self):
         """Centers the window on the screen."""
@@ -62,27 +66,46 @@ class SpotsGui(QtGui.QMainWindow, Ui_MainWindow):
         """Sets all signals and slots for main window."""
         self.actionQuit.triggered.connect(QtGui.qApp.quit)
         self.execute_button.clicked.connect(self.on_execute_button)
+        # change list items
+        self.input_list_view.doubleClicked.connect(self.on_change_input)
+        self.output_list_view.doubleClicked.connect(self.on_change_output)
+        self.controller_list_view.doubleClicked.connect(self.on_change_controller)
+        # delete list items
+        self.remove_controller_button.clicked.connect(self.on_delete_controller)
+        self.remove_input_button.clicked.connect(self.on_delete_input)
+        self.remove_output_button.clicked.connect(self.on_delete_output)
 
     def setup_plc_timer(self):
         self.timer = QtCore.QTimer()
-        #self.timer
+        self.timer.timeout.connect(self.run_plc)
+        self.timer.start(config.DEFAULT_CYCLE_TIME_MS)
 
-    @QtCore.pyqtSlot()
-    def on_execute_button(self):
+    def run_plc(self):
         try:
-            self.current_input_image = plc.read_input_bits()
-            self.current_output_image = plc.process_input_to_output(str(self.source_code_editor.toPlainText()),
-                                                                    self.current_input_image)
-            plc.write_output_bits(self.current_output_image)
+            if self.current_program:
+                self.current_input_image = plc.read_input_bits()
+                self.current_output_image = plc.process_input_to_output(self.current_program,
+                                                                        self.current_input_image)
+                plc.write_output_bits(self.current_output_image)
+                self.statusbar.showMessage('Running...')
+            else:
+                self.statusbar.showMessage('Stopped...')
         except SyntaxError as e:
             self.error_message_label.setText('{} on character {} in line {}'.format(e.message, e.offset, e.lineno))
-            self.current_error_coordinates = (e.lineno, e.offset)
+            self.highlighter.current_error_coordinates = (e.lineno, e.offset)
+            self.statusbar.showMessage('Syntax error in program. Stopped...')
             return
         except KeyError as e:
             self.error_message_label.setText('Unknown input/output used: {}'.format(e.message))
+            self.statusbar.showMessage('Unknown input/output used. Stopped...')
             return
         self.error_message_label.setText('')
         self.update_inputs_and_outputs()
+
+    @QtCore.pyqtSlot()
+    def on_execute_button(self):
+        self.current_program = str(self.source_code_editor.toPlainText())
+        self.run_plc()
 
     def update_inputs_and_outputs(self):
         input_string = ''
@@ -94,7 +117,75 @@ class SpotsGui(QtGui.QMainWindow, Ui_MainWindow):
             output_string += '{:<5}: \t{}\n'.format(k, v)
         self.output_text_edit.setText(output_string)
 
+    @QtCore.pyqtSlot()
+    def on_change_input(self):
+        print('lllll')
 
+    @QtCore.pyqtSlot()
+    def on_change_output(self):
+        print('jjjj')
+
+    @QtCore.pyqtSlot()
+    def on_change_controller(self):
+        print('mmmm')
+
+    @QtCore.pyqtSlot()
+    def on_add_input(self):
+        print('lllll')
+
+    @QtCore.pyqtSlot()
+    def on_add_output(self):
+        print('jjjj')
+
+    @QtCore.pyqtSlot()
+    def on_add_controller(self):
+        print('mmmm')
+        
+    @QtCore.pyqtSlot()
+    def on_delete_input(self):
+        for item in self.input_list_view.selectedItems():
+            name = str(item.text().split(' -> ')[0])
+            del config.INPUT_BITS[name]
+            self.input_list_view.takeItem(self.input_list_view.row(item))
+            print(config.INPUT_BITS)
+
+    @QtCore.pyqtSlot()
+    def on_delete_output(self):
+        for item in self.output_list_view.selectedItems():
+            name = str(item.text().split(' -> ')[0])
+            del config.OUTPUT_BITS[name]
+            self.output_list_view.takeItem(self.output_list_view.row(item))
+            print(config.OUTPUT_BITS)
+
+    @QtCore.pyqtSlot()
+    def on_delete_controller(self):
+        for item in self.controller_list_view.selectedItems():
+            del plc.CONTROLLER[item.controller_id]
+            self.controller_list_view.takeItem(self.controller_list_view.row(item))
+            print(plc.CONTROLLER)
+
+    def update_lists(self):
+        for k, c in plc.CONTROLLER.items():
+            item = QtGui.QListWidgetItem(str(c))
+            item.controller_id = k
+            self.controller_list_view.addItem(item)
+        for name, location in config.INPUT_BITS.items():
+            string = '{} -> {}'.format(name, location)
+            self.input_list_view.addItem(QtGui.QListWidgetItem(string))
+        for name, location in config.OUTPUT_BITS.items():
+            string = '{} -> {}'.format(name, location)
+            self.output_list_view.addItem(QtGui.QListWidgetItem(string))
+
+
+class InputOutputDialog(QtGui.QDialog):
+    def __init__(self, parent=None):
+        super(InputOutputDialog, self).__init__(parent)
+        self.setup_widgets()
+
+    def setup_widgets(self):
+        pass
+
+    
 class IecStHighlighter(QtGui.QSyntaxHighlighter):
     """Provides syntac highlighting for IEC 61131-3 ST source code. Only some
     of the syntax is currently supported!
@@ -103,7 +194,9 @@ class IecStHighlighter(QtGui.QSyntaxHighlighter):
     """
     def __init__(self, parent=None):
         super(IecStHighlighter, self).__init__(parent)
+        self.setup_formats()
 
+    def setup_formats(self):
         keywordFormat = QtGui.QTextCharFormat()
         keywordFormat.setForeground(QtCore.Qt.darkBlue)
         keywordFormat.setFontWeight(QtGui.QFont.Bold)
@@ -126,6 +219,9 @@ class IecStHighlighter(QtGui.QSyntaxHighlighter):
         self.highlightingRules.append((QtCore.QRegExp("[O][0-9]+"),
                 output_format))
 
+        self.error_format = QtGui.QTextCharFormat()
+        self.error_format.setBackground(QtCore.Qt.yellow)
+
         singleLineCommentFormat = QtGui.QTextCharFormat()
         singleLineCommentFormat.setForeground(QtCore.Qt.green)
         self.highlightingRules.append((QtCore.QRegExp("//[^\n]*"),
@@ -145,12 +241,11 @@ class IecStHighlighter(QtGui.QSyntaxHighlighter):
         self.highlightingRules.append((QtCore.QRegExp("\\b[A-Za-z0-9_]+(?=\\()"),
                 functionFormat))
 
-        #self.commentStartExpression = QtCore.QRegExp("(\\*")
-        #self.commentEndExpression = QtCore.QRegExp("\\*)")
         self.commentStartExpression = QtCore.QRegExp("\(\\*")
         self.commentEndExpression = QtCore.QRegExp("\\*\)")
 
     def highlightBlock(self, text):
+        # add all other highlight
         for pattern, format in self.highlightingRules:
             expression = QtCore.QRegExp(pattern)
             index = expression.indexIn(text)
@@ -158,22 +253,18 @@ class IecStHighlighter(QtGui.QSyntaxHighlighter):
                 length = expression.matchedLength()
                 self.setFormat(index, length, format)
                 index = expression.indexIn(text, index + length)
-
+        # add block comment highlight
         self.setCurrentBlockState(0)
-
         startIndex = 0
         if self.previousBlockState() != 1:
             startIndex = self.commentStartExpression.indexIn(text)
-
         while startIndex >= 0:
             endIndex = self.commentEndExpression.indexIn(text, startIndex)
-
             if endIndex == -1:
                 self.setCurrentBlockState(1)
                 commentLength = len(text) - startIndex
             else:
                 commentLength = endIndex - startIndex + self.commentEndExpression.matchedLength()
-
             self.setFormat(startIndex, commentLength,
                     self.multiLineCommentFormat)
             startIndex = self.commentStartExpression.indexIn(text,

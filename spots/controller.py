@@ -26,11 +26,15 @@ logger = logging.getLogger('spots.controller')
 class ModbusModule():
     def __init__(self, io_module_name, ip):
         self.io_module_name = io_module_name
+        self.ip_address = ip
         self.client = ModbusClient(ip, port=config.DEFAULT_MODBUS_PORT)
         self.client.connect()
 
     def __del__(self):
         self.client.close()
+
+    def __str__(self):
+        return 'Controller "{}" at address {}'.format(self.io_module_name, self.ip_address)
 
     def get_bit(self, address):
         try:
@@ -52,10 +56,13 @@ class ModbusModule():
 
 class DummyModule():
     def __init__(self, io_module_name):
-        pass
+        self.io_module_name = io_module_name
 
     def __del__(self):
         pass
+
+    def __str__(self):
+        return 'Controller Dummy "{}"'.format(self.io_module_name)
 
     def get_bit(self, address):
         logger.debug('Getting random bit...')
