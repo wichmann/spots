@@ -118,12 +118,12 @@ boolean_literal : ( 'BOOL#'?  ('1' | '0' ) )| 'TRUE' | 'FALSE';
 
 character_string : single_byte_character_string | double_byte_character_string;
 
-single_byte_character_string : "'" {single_byte_character_representation} "'";
+single_byte_character_string : '\'' {single_byte_character_representation} '\'';
 
 double_byte_character_string : '"' {double_byte_character_representation} '"';
 
-single_byte_character_representation : common_character_representation | "$'" | '"' | '$' hex_digit hex_digit;
-double_byte_character_representation : common_character_representation | '$"' | "'" | '$' hex_digit hex_digit hex_digit hex_digit;
+single_byte_character_representation : common_character_representation | '$\'' | '"' | '$' hex_digit hex_digit;
+double_byte_character_representation : common_character_representation | '$"' | '\'' | '$' hex_digit hex_digit hex_digit hex_digit;
 
 common_character_representation : 'a' | '$$' | '$L' | '$N' | '$P' | '$R' | '$T' | '$l' | '$n' | '$p' | '$r' | '$t';
 // <any printable character except '$', '"' or "'">
@@ -190,7 +190,7 @@ bit_string_type_name : 'BOOL' | 'BYTE' | 'WORD' | 'DWORD' | 'LWORD';
 
 generic_type_name : 'ANY' | 'ANY_DERIVED' | 'ANY_ELEMENTARY' | 'ANY_MAGNITUDE' | 'ANY_NUM' | 'ANY_REAL' | 'ANY_INT' | 'ANY_BIT' | 'ANY_STRING' | 'ANY_DATE';
 
-derived_type_name : single_element_type_name | array_type_name | structure_type_namestring_type_name;
+derived_type_name : single_element_type_name | array_type_name | structure_type_name | string_type_name;
 
 single_element_type_name : simple_type_name | subrange_type_name | enumerated_type_name;
 
@@ -243,7 +243,7 @@ array_specification : array_type_name | 'ARRAY' '[' subrange {',' subrange} ']' 
 
 array_initialization: '[' array_initial_elements {',' array_initial_elements} ']';
 
-array_initial_elements : array_initial_element | integer '('[array_initial_element] ')';
+array_initial_elements : array_initial_element | integer '(' array_initial_element? ')';
 
 array_initial_element : constant | enumerated_value | structure_initialization | array_initialization;
 
@@ -265,7 +265,7 @@ structure_element_initialization : structure_element_name ':=' (constant | enume
 
 string_type_name : identifier;
 
-string_type_declaration : string_type_name ':' ('STRING'|'WSTRING') {'[' integer ']'}? [':=' character_string];
+string_type_declaration : string_type_name ':' ('STRING'|'WSTRING') {'[' integer ']'}? (':=' character_string)?;
 
 variable : direct_variable | symbolic_variable;
 
@@ -349,35 +349,39 @@ global_var_declarations : 'VAR_GLOBAL' {'CONSTANT' | 'RETAIN'}? global_var_decl 
 
 global_var_decl : global_var_spec ':' { located_var_spec_init | function_block_type_name }?;
 
-global_var_spec : global_var_list | global_var_name? location located_var_spec_init : simple_spec_init |  subrange_spec_init | enumerated_spec_init | array_spec_init | initialized_structure | single_byte_string_spec | double_byte_string_spec;
+global_var_spec : global_var_list | global_var_name? location;
+
+located_var_spec_init : simple_spec_init |  subrange_spec_init | enumerated_spec_init | array_spec_init | initialized_structure | single_byte_string_spec | double_byte_string_spec;
 
 location : 'AT' direct_variable;
 
-global_var_list : global_var_name {',' global_var_name} | string_var_declaration : single_byte_string_var_declaration
-| double_byte_string_var_declaration;
+global_var_list : global_var_name {',' global_var_name};
+
+string_var_declaration : single_byte_string_var_declaration | double_byte_string_var_declaration;
 
 single_byte_string_var_declaration : var1_list ':' single_byte_string_spec;
 
 
 
 
-single_byte_string_spec : 'STRING' ['[' integer ']'] [':=' single_byte_character_string];
+
+single_byte_string_spec : 'STRING' ('[' integer ']')? (':=' single_byte_character_string)?;
 
 double_byte_string_var_declaration : var1_list ':' double_byte_string_spec;
 
-double_byte_string_spec : 'WSTRING' ['[' integer ']'] [':=' double_byte_character_string];
+double_byte_string_spec : 'WSTRING' ('[' integer ']')? (':=' double_byte_character_string)?;
 
-incompl_located_var_declarations : 'VAR' ['RETAIN'|'NON_RETAIN'] incompl_located_var_decl ';' {incompl_located_var_decl ';'} 'END_VAR';
+incompl_located_var_declarations : 'VAR' ('RETAIN'|'NON_RETAIN')? incompl_located_var_decl ';' {incompl_located_var_decl ';'} 'END_VAR';
 
 incompl_located_var_decl : variable_name incompl_location ':' var_spec;
 
 incompl_location : 'AT' '%' ('I' | 'Q' | 'M') '*';
 
-var_spec : simple_specification | subrange_specification | enumerated_specificationarray_specification | structure_type_name | 'STRING' ['[' integer ']'] | 'WSTRING' ['['integer ']'];
+var_spec : simple_specification | subrange_specification | enumerated_specification | array_specification | structure_type_name | 'STRING' ('[' integer ']')? | 'WSTRING' ('['integer ']')?;
 
 function_name : standard_function_name | derived_function_name;
 
-standard_function_name : <as defined in clause 2.5.1.5 of the standard>;
+//standard_function_name : <as defined in clause 2.5.1.5 of the standard>;
 
 derived_function_name : identifier;
 
@@ -386,9 +390,10 @@ function_declaration : 'FUNCTION' derived_function_name ':' (elementary_type_nam
 
 io_var_declarations : input_declarations | output_declarations | input_output_declarations;
 
-function_var_decls : 'VAR' ['CONSTANT'] var2_init_decl ';' {var2_init_decl ';'} 'END_VAR';
+function_var_decls : 'VAR' 'CONSTANT'? var2_init_decl ';' {var2_init_decl ';'} 'END_VAR';
 
-function_body : ladder_diagram | function_block_diagram | instruction_list | statement_list | <other languages>;
+function_body : ladder_diagram | function_block_diagram | instruction_list | statement_list;
+// | <other languages>;
 
 var2_init_decl : var1_init_decl | array_var_init_decl | structured_var_init_decl | string_var_declaration;
 
@@ -402,7 +407,7 @@ var2_init_decl : var1_init_decl | array_var_init_decl | structured_var_init_decl
 
 function_block_type_name : standard_function_block_name | derived_function_block_name;
 
-standard_function_block_name : <as defined in clause 2.5.2.3 of the standard>;
+//standard_function_block_name : <as defined in clause 2.5.2.3 of the standard>;
 
 derived_function_block_name : identifier;
 
@@ -414,12 +419,12 @@ temp_var_decls : 'VAR_TEMP' temp_var_decl ';' {temp_var_decl ';'} 'END_VAR';
 
 non_retentive_var_decls : 'VAR' 'NON_RETAIN' var_init_decl ';' {var_init_decl ';'} 'END_VAR';
 
-function_block_body : ladder_diagram | function_block_diagram | instruction_list | statement_list | <other languages>;
+function_block_body : ladder_diagram | function_block_diagram | instruction_list | statement_list;
+// | <other languages>;
 
-program_type_name :: = identifier;
+program_type_name : identifier;
 
-program_declaration : 'PROGRAM' program_type_name { io_var_declarations | other_var_declarations
-| located_var_declarations | program_access_decls } function_block_body 'END_PROGRAM';
+program_declaration : 'PROGRAM' program_type_name { io_var_declarations | other_var_declarations | located_var_declarations | program_access_decls } function_block_body 'END_PROGRAM';
 
 program_access_decls : 'VAR_ACCESS' program_access_decl ';' {program_access_decl ';' } 'END_VAR';
 
@@ -429,7 +434,7 @@ configuration_name : identifier;
 
 resource_type_name : identifier;
 
-configuration_declaration : 'CONFIGURATION' configuration_name [global_var_declarations] (single_resource_declaration | (resource_declaration {resource_declaration})) [access_declarations] [instance_specific_initializations] 'END_CONFIGURATION';
+configuration_declaration : 'CONFIGURATION' configuration_name [global_var_declarations] (single_resource_declaration | (resource_declaration {resource_declaration})) access_declarations? instance_specific_initializations? 'END_CONFIGURATION';
 
 resource_declaration : 'RESOURCE' resource_name 'ON' resource_type_name [global_var_declarations] single_resource_declaration 'END_RESOURCE';
 
@@ -441,9 +446,9 @@ access_declarations : 'VAR_ACCESS' access_declaration ';' {access_declaration ';
 
 access_declaration : access_name ':' access_path ':' non_generic_type_name [direction];
 
-access_path : [resource_name '.'] direct_variable | [resource_name '.'] [program_name '.'] {fb_name'.'} symbolic_variable;
+access_path : (resource_name '.')? direct_variable | (resource_name '.')? (program_name '.')? {fb_name'.'} symbolic_variable;
 
-global_var_reference : [resource_name '.'] global_var_name ['.' structure_element_name];
+global_var_reference : (resource_name '.')? global_var_name ['.' structure_element_name];
 
 access_name : identifier;
 
@@ -460,13 +465,13 @@ direction : 'READ_WRITE' | 'READ_ONLY';
 
 task_configuration : 'TASK' task_name task_initialization;
 
-task_name := identifier;
+task_name : identifier;
 
-task_initialization : '(' ['SINGLE' ':=' data_source ','] ['INTERVAL' ':=' data_source ','] | 'PRIORITY' ':=' integer ')' 
+task_initialization : '(' ('SINGLE' ':=' data_source ',')? ('INTERVAL' ':=' data_source ',')? | 'PRIORITY' ':=' integer ')';
 
-data_source::= constant | global_var_reference | program_output_reference | direct_variable;
+data_source : constant | global_var_reference | program_output_reference | direct_variable;
 
-program_configuration : 'PROGRAM' [RETAIN | NON_RETAIN] program_name ['WITH' task_name] ':' program_type_name ['(' prog_conf_elements ')'];
+program_configuration : 'PROGRAM' (RETAIN | NON_RETAIN)? program_name ('WITH' task_name)? ':' program_type_name ('(' prog_conf_elements ')')?;
 
 prog_conf_elements : prog_conf_element {',' prog_conf_element};
 
@@ -483,6 +488,5 @@ data_sink : global_var_reference | direct_variable ;
 instance_specific_initializations : 'VAR_CONFIG' instance_specific_init ';' {instance_specific_init ';'} 'END_VAR';
 
 instance_specific_init : resource_name '.' program_name '.' {fb_name '.'} ((variable_name [location] ':' located_var_spec_init) | (fb_name ':' function_block_type_name ':=' structure_initialization));
-
 
 
