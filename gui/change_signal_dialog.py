@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'change_signal_dialog.ui'
 #
-# Created: Sun Oct 19 17:20:46 2014
+# Created: Mon Oct 20 14:59:07 2014
 #      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!

@@ -25,10 +25,6 @@ from spots import plc
 from spots.plc import CONTROLLER_TYPE
 
 
-# source to be executed
-source = """O9 := I1;O10 := I1;O11 := I1;O12 := I1;"""
-
-
 def create_logger():
     """Creates logger for this application."""
     LOG_FILENAME = 'spots.log'
@@ -48,14 +44,14 @@ def create_logger():
 def start_plc():
     logger = create_logger()
     # build controller objects for reading and writing bits
-    for key in config.MODULES:
+    for key in config.CONTROLLER_ADDRESSES:
         #plc.create_controller(CONTROLLER_TYPE.Modbus, key, config.MODULES[key])
         plc.create_controller(CONTROLLER_TYPE.Dummy, key)
     # process inputs into outputs
     try:
         while True:
             input_image = plc.read_input_bits()
-            output_image = plc.process_input_to_output(source, input_image)
+            output_image = plc.process_input_to_output(config.SAMPLE_SOURCE, input_image)
             plc.write_output_bits(output_image)
             time.sleep(config.DEFAULT_CYCLE_TIME_MS / 1000.)
     except KeyboardInterrupt:

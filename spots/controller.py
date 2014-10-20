@@ -13,6 +13,7 @@ Created on Sat Oct 18 12:40:04 2014
 """
 
 import logging
+from enum import Enum
 
 from spots import config
 
@@ -23,10 +24,21 @@ from pymodbus.client.sync import ConnectionException
 logger = logging.getLogger('spots.controller')
 
 
+# TODO Change this to NOT use Enums! See: 
+# http://stackoverflow.com/questions/1969005/enumerations-in-python/1970200#1970200
+#CONTROLLER_TYPE = Enum('CONTROLLER_TYPE', 'Modbus Dummy')
+class CONTROLLER_TYPE(Enum):
+    __order__ = 'Modbus Dummy'
+    Modbus = 1
+    Dummy = 2
+
+
 class ModbusModule():
     def __init__(self, io_module_name, ip):
         self.io_module_name = io_module_name
         self.ip_address = ip
+        self.controller_type = CONTROLLER_TYPE.Modbus
+        # build connection object
         self.client = ModbusClient(ip, port=config.DEFAULT_MODBUS_PORT)
         self.client.connect()
 
@@ -57,6 +69,8 @@ class ModbusModule():
 class DummyModule():
     def __init__(self, io_module_name):
         self.io_module_name = io_module_name
+        self.ip_address = ''
+        self.controller_type = CONTROLLER_TYPE.Dummy
 
     def __del__(self):
         pass

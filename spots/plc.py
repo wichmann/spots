@@ -8,7 +8,6 @@ Created on Fri Oct 17 15:41:17 2014
 """
 
 import logging
-from enum import Enum
 
 from spots import config
 from spots import controller
@@ -21,12 +20,6 @@ logger = logging.getLogger('spots.plc')
 # list with all controller instances for all modules, e.g. ModbusModule
 CONTROLLER = {
 }
-
-
-#CONTROLLER_TYPE = Enum('CONTROLLER_TYPE', 'Modbus Dummy')
-class CONTROLLER_TYPE(Enum):
-    Modbus = 1
-    Dummy = 2
 
 
 def create_controller(controller_type, name, ip=''):
@@ -42,9 +35,9 @@ def create_controller(controller_type, name, ip=''):
     :param name: distinct and unique name for this controller
     :param ip: Optional parameter with the ip address of the controller
     """
-    if controller_type == CONTROLLER_TYPE.Modbus:
+    if controller_type == controller.CONTROLLER_TYPE.Modbus:
         CONTROLLER[name] = controller.ModbusModule(name, ip)
-    elif controller_type == CONTROLLER_TYPE.Dummy:
+    elif controller_type == controller.CONTROLLER_TYPE.Dummy:
         CONTROLLER[name] = controller.DummyModule(name)
     else:
         logger.error('Could not create controller because invalid controller type.')

@@ -18,7 +18,9 @@ from PyQt4 import QtCore
 
 from main_window import Ui_MainWindow
 import change_signal_dialog
+import change_controller_dialog
 from spots import plc
+from spots import controller
 from spots import config
 
 
@@ -130,9 +132,12 @@ class SpotsGui(QtGui.QMainWindow, Ui_MainWindow):
         self.dialog.show()
         self.dialog.accepted.connect(self.on_return_from_changing_dialog)
 
-    @QtCore.pyqtSlot()
-    def on_change_controller(self):
-        logger.error('Changing of controllers not yet implemented!')
+    @QtCore.pyqtSlot(QtCore.QModelIndex)
+    def on_change_controller(self, index):
+        controller = self.controller_list_view.item(index.row())
+        self.dialog = ControllerDialog(self, controller.controller_id)
+        self.dialog.show()
+        self.dialog.accepted.connect(self.on_return_from_changing_controller_dialog)
 
     @QtCore.pyqtSlot()
     def on_add_input_output(self):
@@ -142,7 +147,9 @@ class SpotsGui(QtGui.QMainWindow, Ui_MainWindow):
 
     @QtCore.pyqtSlot()
     def on_add_controller(self):
-        logger.error('Adding of controllers not yet implemented!')
+        self.dialog = ControllerDialog(self)
+        self.dialog.show()
+        self.dialog.accepted.connect(self.on_return_from_changing_controller_dialog)
 
     @QtCore.pyqtSlot()
     def on_return_from_changing_dialog(self):
@@ -173,6 +180,48 @@ class SpotsGui(QtGui.QMainWindow, Ui_MainWindow):
         self.update_lists()
 
     @QtCore.pyqtSlot()
+    def on_return_from_changing_controller_dialog(self):
+        """Handles the closing of the dialog to change or add new controller.
+        If an entry is changed the old entry has to be deleted first. After
+        that the new data is added to the controller list.
+        """
+        # disconnect this from dialog
+        self.dialog.accepted.disconnect()
+        # check if data was changed
+        if self.dialog.old_controller_data != self.dialog.new_controller_data:
+            # get new data from dialog
+            new_controller_type = self.dialog.new_controller_data[0]
+            # make Python string from QString because this string is key for
+            # some dictionaries later!
+            new_controller_name = str(self.dialog.new_controller_data[1])
+            new_controller_address = self.dialog.new_controller_data[2]
+            # check if name was changed
+            if self.dialog.old_controller_data:
+                old_controller_name = str(self.dialog.old_controller_data[1])
+                if old_controller_name != new_controller_name:
+                    msgBox = QtGui.QMessageBox()
+                    msgBox.setText('You changed the name of this controller. If this change is executed all inputs and outputs associated with this controller will be useless.')
+                    msgBox.setInformativeText("Do you want to change the controller name?")
+                    msgBox.setStandardButtons(QtGui.QMessageBox.Yes | QtGui.QMessageBox.No)
+                    msgBox.setDefaultButton(QtGui.QMessageBox.No)
+                    return_value = msgBox.exec_()
+                    if return_value == QtGui.QMessageBox.No:
+                        return
+            # changed data -> delete old entry first
+            if self.dialog.old_controller_data:
+                del config.CONTROLLER_ADDRESSES[old_controller_name]
+                del plc.CONTROLLER[old_controller_name]
+            # add new data
+            config.CONTROLLER_ADDRESSES[str(new_controller_name)] = new_controller_address
+            if new_controller_type == 'Modbus':
+                plc.create_controller(controller.CONTROLLER_TYPE.Modbus,
+                                      new_controller_name,
+                                      config.CONTROLLER_ADDRESSES[new_controller_name])
+            elif new_controller_type == 'Dummy':
+                plc.create_controller(controller.CONTROLLER_TYPE.Dummy, new_controller_name)
+        self.update_lists()
+
+    @QtCore.pyqtSlot()
     def on_delete_input(self):
         for item in self.input_list_view.selectedItems():
             name = str(item.text().split(' -> ')[0])
@@ -190,11 +239,10 @@ class SpotsGui(QtGui.QMainWindow, Ui_MainWindow):
 
     @QtCore.pyqtSlot()
     def on_delete_controller(self):
-        logger.error('Deleting of controllers not yet implemented!')
-        #for item in self.controller_list_view.selectedItems():
-        #    del plc.CONTROLLER[item.controller_id]
-        #    self.controller_list_view.takeItem(self.controller_list_view.row(item))
-        #    print(plc.CONTROLLER)
+        for item in self.controller_list_view.selectedItems():
+            del plc.CONTROLLER[str(item.controller_id)]
+            del config.CONTROLLER_ADDRESSES[str(item.controller_id)]
+            self.controller_list_view.takeItem(self.controller_list_view.row(item))
 
     def update_lists(self):
         self.controller_list_view.clear()
@@ -239,7 +287,7 @@ class InputOutputDialog(QtGui.QDialog, change_signal_dialog.Ui_Dialog):
         else:
             self.old_signal_data = tuple()
         # fill combo box
-        self.controller_chooser_combo.addItems(config.MODULES.keys())
+        self.controller_chooser_combo.addItems(config.CONTROLLER_ADDRESSES.keys())
         # set values for signal if one was given
         if self.signal_to_be_changed:
             index = self.controller_chooser_combo.findText(old_controller)
@@ -253,16 +301,98 @@ class InputOutputDialog(QtGui.QDialog, change_signal_dialog.Ui_Dialog):
 
     def set_signals_and_slots(self):
         self.finished.connect(self.on_close)
-        #self.okButton.clicked.connect(self.accept)
-        #self.cancelButton.clicked.connect(self.reject)
 
+    @QtCore.pyqtSlot()
     def on_close(self):
         new_controller = self.controller_chooser_combo.currentText()
         new_signal_name = self.signal_name_text.text()
         new_number = self.signal_address_text.text()
         self.new_signal_data = (new_signal_name, new_controller, new_number)
 
-    
+
+
+class ControllerDialog(QtGui.QDialog, change_controller_dialog.Ui_Dialog):
+    """Provides a dialog box to change or add controller. Controller types are
+    defined in module "spots.plc". Currently only Modbus controller are
+    supported. For testing purposes a dummy controller is also available that
+    simulates input signals by generating random bits.
+
+    After the dialog is closed the old and new controller data can be read as
+    tuples 'old_controller_data' and 'new_controller_data'. First string is the
+    type of the controller, after that follow the name of the controller and
+    the ip address.
+    """
+    def __init__(self, parent=None, controller_id=''):
+        """Sets up a dialog to add or change controller setting.
+
+        :param controller_id: id of the controller to be altered or empty
+        string if a new controller should be added.
+        """
+        super(ControllerDialog, self).__init__(parent)
+        self.controller_to_be_changed = controller_id
+        self.setupUi(self)
+        self.setup_widgets()
+        self.set_signals_and_slots()
+
+    def setup_widgets(self):
+        # get data
+        if self.controller_to_be_changed:
+            # already exiting controller should be changed
+            old_controller = plc.CONTROLLER[self.controller_to_be_changed]
+            old_controller_name = old_controller.io_module_name
+            if old_controller.controller_type == 1:
+                old_controller_type = 'Modbus'
+            elif old_controller.controller_type == 2:
+                old_controller_type = 'Dummy'
+            old_controller_address = old_controller.ip_address
+            self.old_controller_data = (old_controller_type, old_controller_name, old_controller_address)
+        else:
+            self.old_controller_data = tuple()
+        # fill combo box
+        # TODO fill combo box in a better way!
+        self.controller_type_combo.addItem('Modbus')
+        self.controller_type_combo.addItem('Dummy')
+        # set values for signal if one was given
+        if self.controller_to_be_changed:
+            index = self.controller_type_combo.findText(str(old_controller_type))
+            self.controller_type_combo.setCurrentIndex(index)
+            self.controller_name_text.setText(old_controller_name)
+            self.ip_address_text.setText(old_controller_address)
+            self.update_widget_enablement()
+        # setup validation etc.
+#        self.signal_address_text.setValidator(QtGui.QIntValidator(0, 1000))
+#        self.signal_name_text.setValidator(QtGui.QRegExpValidator(
+#                                               QtCore.QRegExp('[IO]{1}[0-9]*')))
+
+    def set_signals_and_slots(self):
+        self.finished.connect(self.on_close)
+        self.controller_type_combo.currentIndexChanged.connect(self.on_type_changed)
+
+    @QtCore.pyqtSlot()
+    def on_close(self):
+        new_controller_type = self.controller_type_combo.currentText()
+        new_controller_name = self.controller_name_text.text()
+        if new_controller_type == 'Modbus':
+            new_controller_address = self.ip_address_text.text()
+        elif new_controller_type == 'Dummy':
+            new_controller_address = ''
+        self.new_controller_data = (new_controller_type, new_controller_name,
+                                    new_controller_address)
+
+    @QtCore.pyqtSlot()
+    def on_type_changed(self):
+        self.update_widget_enablement()
+
+    def update_widget_enablement(self):
+        new_controller_type = self.controller_type_combo.currentText()
+        if new_controller_type == 'Modbus':
+            self.ip_address_text.setEnabled(True)
+            self.ip_address_label.setEnabled(True)
+        elif new_controller_type == 'Dummy':
+            self.ip_address_text.setEnabled(False)
+            self.ip_address_label.setEnabled(False)
+
+
 class IecStHighlighter(QtGui.QSyntaxHighlighter):
     """Provides syntac highlighting for IEC 61131-3 ST source code. Only some
     of the syntax is currently supported!

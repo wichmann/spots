@@ -11,13 +11,16 @@ Created on Fri Oct 17 15:41:58 2014
 DEFAULT_CYCLE_TIME_MS = 500.
 DEFAULT_MODBUS_PORT = 502
 
-MODULES = {
+CONTROLLER_ADDRESSES = {
     'WAGO-IPC': '192.168.10.130',
     'WAGO-IO': '192.168.10.129'
 }
 
 INPUT_BITS = {
-    'I1': 'WAGO-IPC:0'
+    'I1': 'WAGO-IPC:0',
+    'I2': 'WAGO-IPC:1',
+    'I3': 'WAGO-IPC:2',
+    'I4': 'WAGO-IPC:3'
 }
 
 OUTPUT_BITS = {
@@ -36,3 +39,13 @@ OUTPUT_BITS = {
     'O13': 'WAGO-IPC:2',
     'O14': 'WAGO-IPC:3'
 }
+
+# source to be executed
+SAMPLE_SOURCE = """O9:=true;
+O13:=I1 or I2;
+O8:=false;
+O7:=not I1 and I3;
+O6:= not true;
+O5:=I1 and I2 and I3;
+O4:= not I3;
+"""

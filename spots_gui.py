@@ -14,7 +14,7 @@ import sys
 from spots import config
 from spots import plc
 from gui import gui
-from spots.plc import CONTROLLER_TYPE
+from spots.controller import CONTROLLER_TYPE
 
 
 def create_logger():
@@ -36,8 +36,8 @@ def create_logger():
 def start_gui():
     logger = create_logger()
     # build controller objects for reading and writing bits
-    for key in config.MODULES:
-        #plc.create_controller(CONTROLLER_TYPE.Modbus, key, config.MODULES[key])
+    for key in config.CONTROLLER_ADDRESSES:
+        #plc.create_controller(CONTROLLER_TYPE.Modbus, key, config.CONTROLLER_ADDRESSES[key])
         plc.create_controller(CONTROLLER_TYPE.Dummy, key)
     # start GUI
     logger.info('Starting SPotS gui...')
