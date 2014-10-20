@@ -340,6 +340,7 @@ class InputOutputDialog(QtGui.QDialog, change_signal_dialog.Ui_Dialog):
         new_signal_name = self.signal_name_text.text()
         new_number = self.signal_address_text.text()
         self.new_signal_data = (str(new_signal_name), new_controller, new_number)
+        # TODO Use namedtuple for old and new signal data?!
 
 
 
@@ -372,10 +373,16 @@ class ControllerDialog(QtGui.QDialog, change_controller_dialog.Ui_Dialog):
             # already exiting controller should be changed
             old_controller = plc.CONTROLLER[self.controller_to_be_changed]
             old_controller_name = old_controller.io_module_name
-            if old_controller.controller_type == 1:
-                old_controller_type = 'Modbus'
-            elif old_controller.controller_type == 2:
-                old_controller_type = 'Dummy'
+            # TODO Handle different Python versions better!
+            if sys.version_info[0] < 3:
+                if old_controller.controller_type == 1:
+                    old_controller_type = 'Modbus'
+                elif old_controller.controller_type == 2:
+                    old_controller_type = 'Dummy'
+                else:
+                    old_controller_type = ''
+            else:
+                old_controller_type = old_controller.controller_type
             old_controller_address = old_controller.ip_address
             self.old_controller_data = (old_controller_type, old_controller_name, old_controller_address)
         else:
@@ -392,9 +399,10 @@ class ControllerDialog(QtGui.QDialog, change_controller_dialog.Ui_Dialog):
             self.ip_address_text.setText(old_controller_address)
             self.update_widget_enablement()
         # setup validation etc.
-#        self.signal_address_text.setValidator(QtGui.QIntValidator(0, 1000))
-#        self.signal_name_text.setValidator(QtGui.QRegExpValidator(
-#                                               QtCore.QRegExp('[IO]{1}[0-9]*')))
+        self.ip_address_text.setInputMask('000.000.000.000;')
+        self.ip_address_text.setText('192.168.000.000')
+        self.ip_address_text.setValidator(QtGui.QRegExpValidator(
+                                          QtCore.QRegExp('^0*(2(5[0-5]|[0-4]\d)|1?\d{1,2})(\.0*(2(5[0-5]|[0-4]\d)|1?\d{1,2})){3}$')))
 
     def set_signals_and_slots(self):
         self.finished.connect(self.on_close)
@@ -407,6 +415,8 @@ class ControllerDialog(QtGui.QDialog, change_controller_dialog.Ui_Dialog):
         if new_controller_type == 'Modbus':
             new_controller_address = self.ip_address_text.text()
         elif new_controller_type == 'Dummy':
+            new_controller_address = ''
+        else:
             new_controller_address = ''
         self.new_controller_data = (new_controller_type, new_controller_name,
                                     new_controller_address)
