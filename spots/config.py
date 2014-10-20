@@ -16,6 +16,7 @@ CONTROLLER_ADDRESSES = {
     'WAGO-IO': '192.168.10.129'
 }
 
+# TODO Move the dictionaries for inputs and outputs to module 'spots.plc'
 INPUT_BITS = {
     'I1': 'WAGO-IPC:0',
     'I2': 'WAGO-IPC:1',

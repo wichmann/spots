@@ -13,12 +13,20 @@ Created on Sat Oct 18 17:09:11 2014
 
 import logging
 import time
+import six
+import sys
+
 from PyQt4 import QtGui
 from PyQt4 import QtCore
 
-from main_window import Ui_MainWindow
-import change_signal_dialog
-import change_controller_dialog
+if sys.version_info[0] < 3:
+    from main_window import Ui_MainWindow
+    import change_signal_dialog
+    import change_controller_dialog
+else:
+    from gui.main_window import Ui_MainWindow
+    from gui import change_signal_dialog
+    from gui import change_controller_dialog
 from spots import plc
 from spots import controller
 from spots import config
@@ -118,11 +126,11 @@ class SpotsGui(QtGui.QMainWindow, Ui_MainWindow):
 
     def update_inputs_and_outputs(self):
         input_string = ''
-        for k, v in sorted(self.current_input_image.iteritems()):
+        for k, v in sorted(six.iteritems(self.current_input_image)):
             input_string += '{:<5}: \t{}\n'.format(k, v)
         self.input_text_edit.setText(input_string)
         output_string = ''
-        for k, v in sorted(self.current_output_image.iteritems()):
+        for k, v in sorted(six.iteritems(self.current_output_image)):
             output_string += '{:<5}: \t{}\n'.format(k, v)
         self.output_text_edit.setText(output_string)
 
@@ -166,16 +174,16 @@ class SpotsGui(QtGui.QMainWindow, Ui_MainWindow):
                 # changed data -> delete old entry first
                 signal_name = self.dialog.old_signal_data[0]
                 # using startsWith (pyQt) instead of startswith (Python)!
-                if self.dialog.old_signal_data[0].startsWith('O'):
+                if self.dialog.old_signal_data[0].startswith('O'):
                     del config.OUTPUT_BITS[str(signal_name)]
-                elif self.dialog.old_signal_data[0].startsWith('I'):
+                elif self.dialog.old_signal_data[0].startswith('I'):
                     del config.INPUT_BITS[str(signal_name)]
             # add new data
             signal_name = self.dialog.new_signal_data[0]
             signal_address = '{}:{}'.format(self.dialog.new_signal_data[1],self.dialog.new_signal_data[2])
-            if self.dialog.new_signal_data[0].startsWith('O'):
+            if self.dialog.new_signal_data[0].startswith('O'):
                 config.OUTPUT_BITS[str(signal_name)] = signal_address
-            elif self.dialog.new_signal_data[0].startsWith('I'):
+            elif self.dialog.new_signal_data[0].startswith('I'):
                 config.INPUT_BITS[str(signal_name)] = signal_address
         self.update_lists()
 
@@ -240,22 +248,42 @@ class SpotsGui(QtGui.QMainWindow, Ui_MainWindow):
     @QtCore.pyqtSlot()
     def on_delete_controller(self):
         for item in self.controller_list_view.selectedItems():
-            del plc.CONTROLLER[str(item.controller_id)]
-            del config.CONTROLLER_ADDRESSES[str(item.controller_id)]
-            self.controller_list_view.takeItem(self.controller_list_view.row(item))
+            if self.check_if_controller_can_be_deleted(str(item.controller_id)):
+                del plc.CONTROLLER[str(item.controller_id)]
+                del config.CONTROLLER_ADDRESSES[str(item.controller_id)]
+                self.controller_list_view.takeItem(self.controller_list_view.row(item))
+            else:
+                msgBox = QtGui.QMessageBox()
+                msgBox.setIcon(QtGui.QMessageBox.Information)
+                msgBox.setText('Controller can NOT be deleted because there are still inputs or output registered for it!')
+                msgBox.exec_()
+
+    def check_if_controller_can_be_deleted(self, controller):
+        """Checks whether the given controller is still associated with any
+        input or output signals. If there is still at least one signal bound
+        to it this method returns False.
+
+        :param controller: controller that should be checked"""
+        for input_address in  six.itervalues(config.INPUT_BITS):
+            if input_address.startswith(controller):
+                return False
+        for input_address in  six.itervalues(config.OUTPUT_BITS):
+            if input_address.startswith(controller):
+                return False
+        return True
 
     def update_lists(self):
         self.controller_list_view.clear()
         self.input_list_view.clear()
         self.output_list_view.clear()
-        for k, c in plc.CONTROLLER.items():
+        for k, c in six.iteritems(plc.CONTROLLER):
             item = QtGui.QListWidgetItem(str(c))
             item.controller_id = k
             self.controller_list_view.addItem(item)
-        for name, location in config.INPUT_BITS.items():
+        for name, location in six.iteritems(config.INPUT_BITS):
             string = '{} -> {}'.format(name, location)
             self.input_list_view.addItem(QtGui.QListWidgetItem(string))
-        for name, location in config.OUTPUT_BITS.items():
+        for name, location in six.iteritems(config.OUTPUT_BITS):
             string = '{} -> {}'.format(name, location)
             self.output_list_view.addItem(QtGui.QListWidgetItem(string))
 
@@ -283,11 +311,15 @@ class InputOutputDialog(QtGui.QDialog, change_signal_dialog.Ui_Dialog):
             # already exiting signal should be changed
             old_signal_name, old_address = self.signal_to_be_changed.split(' -> ')
             old_controller, old_number = old_address.split(':')
-            self.old_signal_data = (old_signal_name, old_controller, old_number)
+            self.old_signal_data = (str(old_signal_name), old_controller, old_number)
         else:
             self.old_signal_data = tuple()
         # fill combo box
-        self.controller_chooser_combo.addItems(config.CONTROLLER_ADDRESSES.keys())
+        if sys.version_info[0] < 3:
+            controllers = config.CONTROLLER_ADDRESSES.keys()
+        else:
+            controllers = list(config.CONTROLLER_ADDRESSES.keys())
+        self.controller_chooser_combo.addItems(controllers)
         # set values for signal if one was given
         if self.signal_to_be_changed:
             index = self.controller_chooser_combo.findText(old_controller)
@@ -307,7 +339,7 @@ class InputOutputDialog(QtGui.QDialog, change_signal_dialog.Ui_Dialog):
         new_controller = self.controller_chooser_combo.currentText()
         new_signal_name = self.signal_name_text.text()
         new_number = self.signal_address_text.text()
-        self.new_signal_data = (new_signal_name, new_controller, new_number)
+        self.new_signal_data = (str(new_signal_name), new_controller, new_number)
 
 
 
