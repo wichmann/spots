@@ -12,8 +12,8 @@ DEFAULT_CYCLE_TIME_MS = 500.
 DEFAULT_MODBUS_PORT = 502
 
 CONTROLLER_ADDRESSES = {
-    'WAGO-IPC': '192.168.10.130',
-    'WAGO-IO': '192.168.10.129'
+    'WAGO-IPC': '192.168.10.129',
+    'WAGO-IO': '192.168.10.130'
 }
 
 # TODO Move the dictionaries for inputs and outputs to module 'spots.plc'

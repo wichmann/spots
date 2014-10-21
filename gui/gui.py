@@ -65,6 +65,7 @@ class SpotsGui(QtGui.QMainWindow, Ui_MainWindow):
         # line number and character offset for last error or an empty tuple if
         # no error is currently present
         self.highlighter.current_error_coordinates = tuple()
+        self.source_code_editor.setText(config.SAMPLE_SOURCE)
 
     def center_on_screen(self):
         """Centers the window on the screen."""
@@ -202,7 +203,7 @@ class SpotsGui(QtGui.QMainWindow, Ui_MainWindow):
             # make Python string from QString because this string is key for
             # some dictionaries later!
             new_controller_name = str(self.dialog.new_controller_data[1])
-            new_controller_address = self.dialog.new_controller_data[2]
+            new_controller_address = str(self.dialog.new_controller_data[2])
             # check if name was changed
             if self.dialog.old_controller_data:
                 old_controller_name = str(self.dialog.old_controller_data[1])
@@ -220,11 +221,11 @@ class SpotsGui(QtGui.QMainWindow, Ui_MainWindow):
                 del config.CONTROLLER_ADDRESSES[old_controller_name]
                 del plc.CONTROLLER[old_controller_name]
             # add new data
-            config.CONTROLLER_ADDRESSES[str(new_controller_name)] = new_controller_address
+            config.CONTROLLER_ADDRESSES[new_controller_name] = new_controller_address
             if new_controller_type == 'Modbus':
                 plc.create_controller(controller.CONTROLLER_TYPE.Modbus,
                                       new_controller_name,
-                                      config.CONTROLLER_ADDRESSES[new_controller_name])
+                                      new_controller_address)
             elif new_controller_type == 'Dummy':
                 plc.create_controller(controller.CONTROLLER_TYPE.Dummy, new_controller_name)
         self.update_lists()
@@ -329,7 +330,8 @@ class InputOutputDialog(QtGui.QDialog, change_signal_dialog.Ui_Dialog):
         # setup validation etc.
         self.signal_address_text.setValidator(QtGui.QIntValidator(0, 1000))
         self.signal_name_text.setValidator(QtGui.QRegExpValidator(
-                                               QtCore.QRegExp('[IO]{1}[0-9]*')))
+                                           QtCore.QRegExp('[IO]{1}[0-9]*')))
+        self.signal_name_text.setFocus()
 
     def set_signals_and_slots(self):
         self.finished.connect(self.on_close)
@@ -341,7 +343,6 @@ class InputOutputDialog(QtGui.QDialog, change_signal_dialog.Ui_Dialog):
         new_number = self.signal_address_text.text()
         self.new_signal_data = (str(new_signal_name), new_controller, new_number)
         # TODO Use namedtuple for old and new signal data?!
-
 
 
 class ControllerDialog(QtGui.QDialog, change_controller_dialog.Ui_Dialog):
@@ -398,11 +399,12 @@ class ControllerDialog(QtGui.QDialog, change_controller_dialog.Ui_Dialog):
             self.controller_name_text.setText(old_controller_name)
             self.ip_address_text.setText(old_controller_address)
             self.update_widget_enablement()
+        else:
+            self.ip_address_text.setText('192.168.1.1')
         # setup validation etc.
-        self.ip_address_text.setInputMask('000.000.000.000;')
-        self.ip_address_text.setText('192.168.000.000')
         self.ip_address_text.setValidator(QtGui.QRegExpValidator(
                                           QtCore.QRegExp('^0*(2(5[0-5]|[0-4]\d)|1?\d{1,2})(\.0*(2(5[0-5]|[0-4]\d)|1?\d{1,2})){3}$')))
+        self.controller_name_text.setFocus()
 
     def set_signals_and_slots(self):
         self.finished.connect(self.on_close)

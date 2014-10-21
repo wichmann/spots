@@ -35,6 +35,7 @@ class CONTROLLER_TYPE(Enum):
 
 class ModbusModule():
     def __init__(self, io_module_name, ip):
+        logger.debug('Creating new controller with name {} and address {}.'.format(io_module_name, ip))
         self.io_module_name = io_module_name
         self.ip_address = ip
         self.controller_type = CONTROLLER_TYPE.Modbus
