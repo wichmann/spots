@@ -23,9 +23,14 @@ SPotS runs with Python 2.7 and 3.4. It requires also the following packages:
 * pypeg2 (parser for IEC 61131-3 ST)
 * enum (enum support under Python 2.7)
 * pyQt4 (graphical user interface)
-* 
 
+To get pyPEG2 running under Windows insert into pyPEG2\__init__.py the
+following lines:
 
+    import itertools
+    range = lambda stop: iter(itertools.count().next, stop)
+
+	
 THIRD PARTY SOFTWARE
 --------------------
 pyPardy includes parts of or links with the following software packages and 
